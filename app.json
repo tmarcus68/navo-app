@@ -16,7 +16,10 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need access to your location while the app is in use.",
         "NSLocationAlwaysUsageDescription": "We need access to your location at all times for full functionality.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -24,7 +27,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
       "package": "com.tmarcus68.navoapp"
     },
     "web": {
@@ -34,6 +40,7 @@
       "eas": {
         "projectId": "3b968970-9144-4773-8eaf-bbc23f6d7f69"
       }
-    }
+    },
+    "owner": "tmarcus68"
   }
 }

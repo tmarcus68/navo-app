@@ -12,9 +12,14 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  startBackgroundUpdate,
+  stopBackgroundUpdate,
+} from "./backgroundLocationTask"; // Import your background task functions
 
 const log = (message: string) =>
   console.log(`[${new Date().toISOString()}] ${message}`);
+
 const errorLog = (message: string) =>
   console.error(`[${new Date().toISOString()}] ${message}`);
 
@@ -35,9 +40,12 @@ export default function App() {
       try {
         const savedApiUrl = await AsyncStorage.getItem("apiUrl");
         if (savedApiUrl) setApiUrl(savedApiUrl);
-      } catch (err) {
-        const typedError = err as Error;
-        errorLog("Failed to load API URL: " + typedError.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          errorLog("Failed to load API URL: " + err.message);
+        } else {
+          errorLog("Failed to load API URL: " + String(err));
+        }
       }
     };
 
@@ -48,9 +56,12 @@ export default function App() {
     setApiUrl(url);
     try {
       await AsyncStorage.setItem("apiUrl", url);
-    } catch (err) {
-      const typedError = err as Error;
-      errorLog("Failed to save API URL: " + typedError.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        errorLog("Failed to save API URL: " + err.message);
+      } else {
+        errorLog("Failed to save API URL: " + String(err));
+      }
     }
   };
 
@@ -72,7 +83,6 @@ export default function App() {
       });
 
       if (!response.ok) {
-        // Attempt to parse response body for error details
         const errorResponse = await response.json();
         throw new Error(
           `Error ${response.status}: ${
@@ -91,14 +101,20 @@ export default function App() {
       });
       setErrorMessage(null);
     } catch (err: unknown) {
-      const typedError = err as Error;
       let message = "An unexpected error occurred";
 
-      if (typedError.message.includes("Network request failed")) {
-        message =
-          "Network request failed. Please check your connection or API server.";
-      } else if (typedError.message.includes("Failed to send location data")) {
-        message = "Failed to send location data. Please check your API server.";
+      if (err instanceof Error) {
+        if (err.message.includes("Network request failed")) {
+          message =
+            "Network request failed. Please check your connection or API server.";
+        } else if (err.message.includes("Failed to send location data")) {
+          message =
+            "Failed to send location data. Please check your API server.";
+        } else {
+          message = err.message;
+        }
+      } else {
+        message = String(err);
       }
 
       errorLog(message);
@@ -150,7 +166,10 @@ export default function App() {
         return;
       }
 
-      // Fetch and send the current location immediately
+      // Start background location tracking
+      await startBackgroundUpdate();
+
+      // Fetch and send the current location immediately in the foreground
       try {
         const initialLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -158,9 +177,12 @@ export default function App() {
 
         const { latitude, longitude } = initialLocation.coords;
         await sendLocation(latitude, longitude);
-      } catch (err) {
-        const typedError = err as Error;
-        errorLog("Error fetching initial location: " + typedError.message);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          errorLog("Error fetching initial location: " + err.message);
+        } else {
+          errorLog("Error fetching initial location: " + String(err));
+        }
         stopSending();
         return;
       }
@@ -181,27 +203,28 @@ export default function App() {
           ) {
             await sendLocation(latitude, longitude);
           }
-        } catch (err) {
-          const typedError = err as Error;
-          errorLog("Error fetching location: " + typedError.message);
+        } catch (err: unknown) {
+          if (err instanceof Error) {
+            errorLog("Error fetching location: " + err.message);
+          } else {
+            errorLog("Error fetching location: " + String(err));
+          }
         }
       }, 60000); // 60 seconds
 
       setIntervalId(id);
       setIsSending(true);
-    } catch (err) {
-      const typedError = err as Error;
-      errorLog("Error starting location updates: " + typedError.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        errorLog("Error starting location updates: " + err.message);
+      } else {
+        errorLog("Error starting location updates: " + String(err));
+      }
     }
   };
 
-  const stopSending = () => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-    setLoading(false);
-    setErrorMessage(null);
+  const stopSending = async () => {
+    await stopBackgroundUpdate();
     setIsSending(false);
     setLocation(null);
   };

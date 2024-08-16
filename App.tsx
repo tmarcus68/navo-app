@@ -36,32 +36,39 @@ export default function App() {
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    log("App mounted");
     const loadApiUrl = async () => {
       try {
         const savedApiUrl = await AsyncStorage.getItem("apiUrl");
-        if (savedApiUrl) setApiUrl(savedApiUrl);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          errorLog("Failed to load API URL: " + err.message);
-        } else {
-          errorLog("Failed to load API URL: " + String(err));
+        if (savedApiUrl) {
+          setApiUrl(savedApiUrl);
+          log("Loaded API URL from AsyncStorage");
         }
+      } catch (err) {
+        errorLog(
+          "Failed to load API URL from AsyncStorage: " +
+            (err instanceof Error ? err.message : String(err))
+        );
       }
     };
 
     loadApiUrl();
+
+    return () => {
+      log("App unmounted");
+    };
   }, []);
 
   const handleApiUrlChange = async (url: string) => {
     setApiUrl(url);
     try {
       await AsyncStorage.setItem("apiUrl", url);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        errorLog("Failed to save API URL: " + err.message);
-      } else {
-        errorLog("Failed to save API URL: " + String(err));
-      }
+      log("Saved API URL to AsyncStorage");
+    } catch (err) {
+      errorLog(
+        "Failed to save API URL to AsyncStorage: " +
+          (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 
@@ -100,7 +107,7 @@ export default function App() {
         timestamp,
       });
       setErrorMessage(null);
-    } catch (err: unknown) {
+    } catch (err) {
       let message = "An unexpected error occurred";
 
       if (err instanceof Error) {
@@ -117,7 +124,7 @@ export default function App() {
         message = String(err);
       }
 
-      errorLog(message);
+      errorLog("Error sending location: " + message);
       setErrorMessage(message);
       Alert.alert("Error", message);
     } finally {
@@ -127,15 +134,14 @@ export default function App() {
 
   const requestForegroundPermission = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
+    log("Foreground location permission status: " + status);
     return status === "granted";
   };
 
   const requestBackgroundPermission = async () => {
-    if (Platform.OS === "android") {
+    if (Platform.OS === "android" || Platform.OS === "ios") {
       const { status } = await Location.requestBackgroundPermissionsAsync();
-      return status === "granted";
-    } else if (Platform.OS === "ios") {
-      const { status } = await Location.requestBackgroundPermissionsAsync();
+      log("Background location permission status: " + status);
       return status === "granted";
     }
     return true; // No background permission needed for other platforms
@@ -166,11 +172,9 @@ export default function App() {
         return;
       }
 
-      // Start background location tracking
       log("Starting background location updates...");
       await startBackgroundUpdate();
 
-      // Fetch and send the current location immediately in the foreground
       try {
         const initialLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -181,17 +185,15 @@ export default function App() {
           `Fetched initial location: Latitude: ${latitude}, Longitude: ${longitude}`
         );
         await sendLocation(latitude, longitude);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          errorLog("Error fetching initial location: " + err.message);
-        } else {
-          errorLog("Error fetching initial location: " + String(err));
-        }
+      } catch (err) {
+        errorLog(
+          "Error fetching initial location: " +
+            (err instanceof Error ? err.message : String(err))
+        );
         stopSending();
         return;
       }
 
-      // Start the interval-based location checking
       const id = setInterval(async () => {
         try {
           const newLocation = await Location.getCurrentPositionAsync({
@@ -210,23 +212,21 @@ export default function App() {
           ) {
             await sendLocation(latitude, longitude);
           }
-        } catch (err: unknown) {
-          if (err instanceof Error) {
-            errorLog("Error fetching location: " + err.message);
-          } else {
-            errorLog("Error fetching location: " + String(err));
-          }
+        } catch (err) {
+          errorLog(
+            "Error fetching location: " +
+              (err instanceof Error ? err.message : String(err))
+          );
         }
       }, 60000); // 60 seconds
 
       setIntervalId(id);
       setIsSending(true);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        errorLog("Error starting location updates: " + err.message);
-      } else {
-        errorLog("Error starting location updates: " + String(err));
-      }
+    } catch (err) {
+      errorLog(
+        "Error starting location updates: " +
+          (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 

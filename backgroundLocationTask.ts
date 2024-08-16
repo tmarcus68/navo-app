@@ -14,13 +14,12 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     const { latitude, longitude } = locations[0].coords;
 
     console.log(
-      `Received location in background: Latitude: ${latitude}, Longitude: ${longitude}`
+      `[${new Date().toISOString()}] Received location in background: Latitude: ${latitude}, Longitude: ${longitude}`
     );
 
-    // Handle the received location data
     try {
       // Implement your logic to send location data to your API
-      console.log("Sending location data to API");
+      console.log("Sending location data to API...");
     } catch (err) {
       console.error("Error sending background location data:", err);
     }
@@ -29,14 +28,18 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 
 export const startBackgroundUpdate = async () => {
   try {
-    console.log("Starting background location updates...");
+    console.log(
+      `[${new Date().toISOString()}] Starting background location updates...`
+    );
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
       timeInterval: 60000, // 60 seconds
       distanceInterval: 1, // Minimum distance (meters) between location updates
       showsBackgroundLocationIndicator: true,
     });
-    console.log("Background location updates started.");
+    console.log(
+      `[${new Date().toISOString()}] Background location updates started.`
+    );
   } catch (error) {
     console.error("Failed to start background location updates:", error);
   }
@@ -44,9 +47,13 @@ export const startBackgroundUpdate = async () => {
 
 export const stopBackgroundUpdate = async () => {
   try {
-    console.log("Stopping background location updates...");
+    console.log(
+      `[${new Date().toISOString()}] Stopping background location updates...`
+    );
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-    console.log("Background location updates stopped.");
+    console.log(
+      `[${new Date().toISOString()}] Background location updates stopped.`
+    );
   } catch (error) {
     console.error("Failed to stop background location updates:", error);
   }

@@ -43,7 +43,14 @@ export default function App() {
     };
 
     loadApiUrl();
-  }, []);
+
+    // Cleanup interval on unmount
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [intervalId]);
 
   const handleApiUrlChange = async (url: string) => {
     setApiUrl(url);
@@ -208,8 +215,8 @@ export default function App() {
     setLoading(false);
     setIsDisabled(false); // Re-enable button when stopping
     setErrorMessage(null);
-    setIsSending(false);
     setLocation(null);
+    setIsSending(false);
   };
 
   const handleButtonPress = () => {

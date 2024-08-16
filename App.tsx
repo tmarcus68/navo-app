@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   StyleSheet,
@@ -45,11 +45,9 @@ export default function App() {
     loadApiUrl();
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      stopSending();
     };
-  }, [intervalId]);
+  }, []);
 
   const handleApiUrlChange = async (url: string) => {
     setApiUrl(url);
@@ -61,61 +59,67 @@ export default function App() {
     }
   };
 
-  const sendLocation = async (latitude: number, longitude: number) => {
-    setLoading(true);
-    setIsDisabled(true);
-    log("Sending location to " + apiUrl);
-    try {
-      const timestamp = new Date().toISOString();
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+  const sendLocation = useCallback(
+    async (latitude: number, longitude: number) => {
+      setLoading(true);
+      setIsDisabled(true);
+      log("Sending location to " + apiUrl);
+      try {
+        const timestamp = new Date().toISOString();
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            latitude,
+            longitude,
+            timestamp,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorResponse = await response.json();
+          throw new Error(
+            `Error ${response.status}: ${
+              errorResponse.message || "Failed to send location data"
+            }`
+          );
+        }
+
+        const responseData = await response.json();
+        log("Response data: " + JSON.stringify(responseData));
+
+        setLocation({
           latitude,
           longitude,
           timestamp,
-        }),
-      });
+        });
+        setErrorMessage(null);
+      } catch (err: unknown) {
+        const typedError = err as Error;
+        let message = "An unexpected error occurred";
 
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        throw new Error(
-          `Error ${response.status}: ${
-            errorResponse.message || "Failed to send location data"
-          }`
-        );
+        if (typedError.message.includes("Network request failed")) {
+          message =
+            "Network request failed. Please check your connection or API server.";
+        } else if (
+          typedError.message.includes("Failed to send location data")
+        ) {
+          message =
+            "Failed to send location data. Please check your API server.";
+        }
+
+        errorLog(message);
+        setErrorMessage(message);
+        Alert.alert("Error", message);
+      } finally {
+        setLoading(false);
+        setIsDisabled(false);
       }
-
-      const responseData = await response.json();
-      log("Response data: " + JSON.stringify(responseData));
-
-      setLocation({
-        latitude,
-        longitude,
-        timestamp,
-      });
-      setErrorMessage(null);
-    } catch (err: unknown) {
-      const typedError = err as Error;
-      let message = "An unexpected error occurred";
-
-      if (typedError.message.includes("Network request failed")) {
-        message =
-          "Network request failed. Please check your connection or API server.";
-      } else if (typedError.message.includes("Failed to send location data")) {
-        message = "Failed to send location data. Please check your API server.";
-      }
-
-      errorLog(message);
-      setErrorMessage(message);
-      Alert.alert("Error", message);
-    } finally {
-      setLoading(false);
-      setIsDisabled(false);
-    }
-  };
+    },
+    [apiUrl]
+  );
 
   const requestPermission = async (type: "foreground" | "background") => {
     if (type === "foreground") {
@@ -128,8 +132,14 @@ export default function App() {
     return true; // No background permission needed for other platforms
   };
 
-  const startSending = async () => {
+  const startSending = useCallback(async () => {
     setIsSending(true);
+
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
+
     if (!apiUrl) {
       Alert.alert("Error", "API URL is not set");
       setIsSending(false);
@@ -164,6 +174,8 @@ export default function App() {
       }
 
       // Fetch and send the current location immediately
+      let initialLocationData: { latitude: number; longitude: number } | null =
+        null;
       try {
         const initialLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -171,6 +183,17 @@ export default function App() {
 
         const { latitude, longitude } = initialLocation.coords;
         await sendLocation(latitude, longitude);
+        setLocation({
+          latitude,
+          longitude,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Set the initial location as the previous location
+        initialLocationData = { latitude, longitude };
+        log(
+          `Initial location set to: (${initialLocationData.latitude}, ${initialLocationData.longitude})`
+        );
       } catch (err) {
         const typedError = err as Error;
         errorLog("Error fetching initial location: " + typedError.message);
@@ -179,6 +202,62 @@ export default function App() {
         setIsDisabled(false);
         return;
       }
+
+      const hasLocationChanged = (
+        prevLocation: { latitude: number; longitude: number } | null,
+        newLocation: { latitude: number; longitude: number }
+      ): boolean => {
+        const thresholdMeters = 5;
+
+        // Function to calculate the distance in meters between two coordinates
+        const calculateDistanceInMeters = (
+          lat1: number,
+          lon1: number,
+          lat2: number,
+          lon2: number
+        ) => {
+          const R = 6371e3; // Earth's radius in meters
+          const toRadians = (angle: number) => (angle * Math.PI) / 180;
+
+          const φ1 = toRadians(lat1);
+          const φ2 = toRadians(lat2);
+          const Δφ = toRadians(lat2 - lat1);
+          const Δλ = toRadians(lon2 - lon1);
+
+          const a =
+            Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+          return R * c; // Distance in meters
+        };
+
+        let distanceInMeters = 0;
+        let hasChanged = true;
+
+        if (prevLocation) {
+          distanceInMeters = calculateDistanceInMeters(
+            prevLocation.latitude,
+            prevLocation.longitude,
+            newLocation.latitude,
+            newLocation.longitude
+          );
+
+          hasChanged = distanceInMeters > thresholdMeters;
+
+          log(
+            `Comparing locations: Previous (${prevLocation.latitude}, ${prevLocation.longitude}) - New (${newLocation.latitude}, ${newLocation.longitude})`
+          );
+          log(`Distance in meters: ${distanceInMeters}`);
+          log(`Location changed: ${hasChanged}`);
+        } else {
+          log(
+            `Initial location: (${newLocation.latitude}, ${newLocation.longitude})`
+          );
+        }
+
+        return hasChanged;
+      };
 
       // Start the interval-based location checking
       const id = setInterval(async () => {
@@ -190,11 +269,19 @@ export default function App() {
           const { latitude, longitude } = newLocation.coords;
 
           if (
-            !location ||
-            location.latitude !== latitude ||
-            location.longitude !== longitude
+            initialLocationData &&
+            hasLocationChanged(initialLocationData, { latitude, longitude })
           ) {
             await sendLocation(latitude, longitude);
+            setLocation({
+              latitude,
+              longitude,
+              timestamp: new Date().toISOString(),
+            });
+
+            // Update previous location
+            initialLocationData.latitude = latitude;
+            initialLocationData.longitude = longitude;
           }
         } catch (err) {
           const typedError = err as Error;
@@ -210,9 +297,9 @@ export default function App() {
       setLoading(false);
       setIsDisabled(false);
     }
-  };
+  }, [apiUrl, intervalId, sendLocation]);
 
-  const stopSending = () => {
+  const stopSending = useCallback(() => {
     if (intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
@@ -222,17 +309,19 @@ export default function App() {
     setIsDisabled(false);
     setErrorMessage(null);
     setLocation(null);
-  };
+  }, [intervalId]);
 
-  const handleButtonPress = () => {
+  const handleButtonPress = useCallback(() => {
     setLoading(true);
     setIsDisabled(true);
     if (isSending) {
+      log(">>>>> Stop Sending Geolocation");
       stopSending();
     } else {
+      log(">>>>> Start Sending Geolocation");
       startSending();
     }
-  };
+  }, [isSending, startSending, stopSending]);
 
   return (
     <View style={styles.container}>
@@ -259,21 +348,18 @@ export default function App() {
       {loading && (
         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
       )}
-      {location && !loading && (
-        <View style={styles.locationInfo}>
-          <Text>Last Latitude: {location.latitude}</Text>
-          <Text>Last Longitude: {location.longitude}</Text>
-          <Text>Last Timestamp: {location.timestamp}</Text>
-        </View>
-      )}
-      {errorMessage && (
-        <View style={styles.error}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
-          <Text style={styles.errorText}>
-            Please try again later or check your connection.
+      {location && (
+        <View style={styles.locationContainer}>
+          <Text style={styles.locationText}>Latitude: {location.latitude}</Text>
+          <Text style={styles.locationText}>
+            Longitude: {location.longitude}
+          </Text>
+          <Text style={styles.locationText}>
+            Timestamp: {location.timestamp}
           </Text>
         </View>
       )}
+      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
       <StatusBar style="auto" />
     </View>
   );
@@ -291,17 +377,15 @@ const styles = StyleSheet.create({
     height: 40,
     borderColor: "gray",
     borderWidth: 1,
-    width: "100%",
     marginBottom: 20,
     paddingHorizontal: 10,
+    width: "100%",
   },
   button: {
-    height: 40,
-    width: "100%",
+    padding: 15,
     borderRadius: 5,
+    width: "100%",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
   },
   startButton: {
     backgroundColor: "green",
@@ -316,22 +400,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  locationInfo: {
-    marginTop: 20,
-  },
   loader: {
     marginTop: 20,
   },
-  error: {
+  locationContainer: {
     marginTop: 20,
-    padding: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "red",
-    backgroundColor: "#fdd",
+  },
+  locationText: {
+    fontSize: 16,
   },
   errorText: {
     color: "red",
-    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
   },
 });

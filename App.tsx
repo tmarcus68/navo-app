@@ -129,8 +129,11 @@ export default function App() {
   };
 
   const startSending = async () => {
+    setIsSending(true);
     if (!apiUrl) {
       Alert.alert("Error", "API URL is not set");
+      setIsSending(false);
+      setLoading(false);
       setIsDisabled(false);
       return;
     }
@@ -142,6 +145,8 @@ export default function App() {
           "Permission Denied",
           "Please enable location permissions in your device settings."
         );
+        setIsSending(false);
+        setLoading(false);
         setIsDisabled(false);
         return;
       }
@@ -152,6 +157,8 @@ export default function App() {
           "Background Permission Required",
           "Please enable background location permissions in your device settings."
         );
+        setIsSending(false);
+        setLoading(false);
         setIsDisabled(false);
         return;
       }
@@ -167,6 +174,8 @@ export default function App() {
       } catch (err) {
         const typedError = err as Error;
         errorLog("Error fetching initial location: " + typedError.message);
+        setIsSending(false);
+        setLoading(false);
         setIsDisabled(false);
         return;
       }
@@ -194,10 +203,11 @@ export default function App() {
       }, 10000); // 10 seconds
 
       setIntervalId(id);
-      setIsSending(true);
     } catch (err) {
       const typedError = err as Error;
       errorLog("Error starting location updates: " + typedError.message);
+      setIsSending(false);
+      setLoading(false);
       setIsDisabled(false);
     }
   };
@@ -207,11 +217,11 @@ export default function App() {
       clearInterval(intervalId);
       setIntervalId(null);
     }
+    setIsSending(false);
     setLoading(false);
     setIsDisabled(false);
     setErrorMessage(null);
     setLocation(null);
-    setIsSending(false);
   };
 
   const handleButtonPress = () => {

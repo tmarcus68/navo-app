@@ -167,7 +167,7 @@ export default function App() {
       }
 
       // Start background location tracking
-      console.log("Starting background location updates...");
+      log("Starting background location updates...");
       await startBackgroundUpdate();
 
       // Fetch and send the current location immediately in the foreground
@@ -177,6 +177,9 @@ export default function App() {
         });
 
         const { latitude, longitude } = initialLocation.coords;
+        log(
+          `Fetched initial location: Latitude: ${latitude}, Longitude: ${longitude}`
+        );
         await sendLocation(latitude, longitude);
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -196,6 +199,9 @@ export default function App() {
           });
 
           const { latitude, longitude } = newLocation.coords;
+          log(
+            `Fetched new location: Latitude: ${latitude}, Longitude: ${longitude}`
+          );
 
           if (
             !location ||
@@ -225,7 +231,7 @@ export default function App() {
   };
 
   const stopSending = async () => {
-    console.log("Stopping background location updates...");
+    log("Stopping background location updates...");
     await stopBackgroundUpdate();
     setIsSending(false);
     setLocation(null);
@@ -321,18 +327,20 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  locationInfo: {
-    marginTop: 20,
-  },
   loader: {
-    marginTop: 20,
+    marginVertical: 20,
+  },
+  locationInfo: {
+    alignItems: "center",
   },
   error: {
     marginTop: 20,
-    alignItems: "center",
+    padding: 10,
+    backgroundColor: "#fdd",
+    borderRadius: 5,
   },
   errorText: {
     color: "red",
-    fontSize: 16,
+    textAlign: "center",
   },
 });

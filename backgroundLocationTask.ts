@@ -17,9 +17,10 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
       `Received location in background: Latitude: ${latitude}, Longitude: ${longitude}`
     );
 
-    // Handle the received location data, e.g., send it to your API
+    // Handle the received location data
     try {
       // Implement your logic to send location data to your API
+      console.log("Sending location data to API");
     } catch (err) {
       console.error("Error sending background location data:", err);
     }
@@ -28,11 +29,12 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 
 export const startBackgroundUpdate = async () => {
   try {
+    console.log("Starting background location updates...");
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
       timeInterval: 60000, // 60 seconds
       distanceInterval: 1, // Minimum distance (meters) between location updates
-      showsBackgroundLocationIndicator: true, // iOS specific setting for showing location indicator
+      showsBackgroundLocationIndicator: true,
     });
     console.log("Background location updates started.");
   } catch (error) {
@@ -42,6 +44,7 @@ export const startBackgroundUpdate = async () => {
 
 export const stopBackgroundUpdate = async () => {
   try {
+    console.log("Stopping background location updates...");
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     console.log("Background location updates stopped.");
   } catch (error) {

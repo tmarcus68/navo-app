@@ -1,40 +1,38 @@
 {
   "expo": {
-    "name": "navo-app",
-    "slug": "navo-app",
+    "name": "NavoApp",
+    "slug": "navoapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.tmarcus68.navoapp",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We need access to your location while the app is in use.",
-        "NSLocationAlwaysUsageDescription": "We need access to your location at all times for full functionality.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "NSLocationWhenInUseUsageDescription": "This app uses location services to provide location tracking.",
+        "NSLocationAlwaysUsageDescription": "This app needs to access your location in the background."
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
+      "package": "com.tmarcus68.navoapp",
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION"],
-      "package": "com.tmarcus68.navoapp"
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_API_KEY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "3b968970-9144-4773-8eaf-bbc23f6d7f69"
-      }
-    },
-    "owner": "tmarcus68"
+    }
   }
 }

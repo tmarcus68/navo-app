@@ -5,56 +5,40 @@ const LOCATION_TASK_NAME = "background-location-task";
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
-    console.error("Background task error:", error);
+    console.error(`Background task error: ${error.message}`);
     return;
   }
 
   if (data) {
     const { locations } = data as { locations: Location.LocationObject[] };
     const { latitude, longitude } = locations[0].coords;
+    const timestamp = new Date().toISOString();
 
+    // Send location data to your server or process it as needed
     console.log(
-      `[${new Date().toISOString()}] Received location in background: Latitude: ${latitude}, Longitude: ${longitude}`
+      `Background Location: Latitude: ${latitude}, Longitude: ${longitude}, Timestamp: ${timestamp}`
     );
-
-    try {
-      // Implement your logic to send location data to your API
-      console.log("Sending location data to API...");
-    } catch (err) {
-      console.error("Error sending background location data:", err);
-    }
   }
 });
 
 export const startBackgroundUpdate = async () => {
-  try {
-    console.log(
-      `[${new Date().toISOString()}] Starting background location updates...`
-    );
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 60000, // 60 seconds
-      distanceInterval: 1, // Minimum distance (meters) between location updates
-      showsBackgroundLocationIndicator: true,
-    });
-    console.log(
-      `[${new Date().toISOString()}] Background location updates started.`
-    );
-  } catch (error) {
-    console.error("Failed to start background location updates:", error);
+  const hasStarted = await Location.hasStartedLocationUpdatesAsync(
+    LOCATION_TASK_NAME
+  );
+  if (hasStarted) {
+    console.log("Background location updates already started.");
+    return;
   }
+
+  console.log("Starting background location updates...");
+  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+    accuracy: Location.Accuracy.High,
+    timeInterval: 60000, // 1 minute
+    distanceInterval: 10, // 10 meters
+  });
 };
 
 export const stopBackgroundUpdate = async () => {
-  try {
-    console.log(
-      `[${new Date().toISOString()}] Stopping background location updates...`
-    );
-    await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-    console.log(
-      `[${new Date().toISOString()}] Background location updates stopped.`
-    );
-  } catch (error) {
-    console.error("Failed to stop background location updates:", error);
-  }
+  console.log("Stopping background location updates...");
+  await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
 };

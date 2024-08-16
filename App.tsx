@@ -21,6 +21,7 @@ const errorLog = (message: string) =>
 export default function App() {
   const [apiUrl, setApiUrl] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
   const [location, setLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -56,6 +57,7 @@ export default function App() {
 
   const sendLocation = async (latitude: number, longitude: number) => {
     setLoading(true);
+    setIsDisabled(true);
     log("Sending location to " + apiUrl);
     try {
       const timestamp = new Date().toISOString();
@@ -106,6 +108,7 @@ export default function App() {
       Alert.alert("Error", message);
     } finally {
       setLoading(false);
+      setIsDisabled(false);
     }
   };
 
@@ -128,6 +131,7 @@ export default function App() {
   const startSending = async () => {
     if (!apiUrl) {
       Alert.alert("Error", "API URL is not set");
+      setIsDisabled(false); // Re-enable button if URL is not set
       return;
     }
 
@@ -137,7 +141,7 @@ export default function App() {
         Alert.alert(
           "Permission to access location was denied. Please enable location permissions in your device settings."
         );
-        stopSending();
+        setIsDisabled(false); // Re-enable button if permission is denied
         return;
       }
 
@@ -146,7 +150,7 @@ export default function App() {
         Alert.alert(
           "Background location permission is required for full functionality. Please enable it in your device settings."
         );
-        stopSending();
+        setIsDisabled(false); // Re-enable button if background permission is denied
         return;
       }
 
@@ -161,7 +165,7 @@ export default function App() {
       } catch (err) {
         const typedError = err as Error;
         errorLog("Error fetching initial location: " + typedError.message);
-        stopSending();
+        setIsDisabled(false); // Re-enable button if initial location fetch fails
         return;
       }
 
@@ -185,13 +189,14 @@ export default function App() {
           const typedError = err as Error;
           errorLog("Error fetching location: " + typedError.message);
         }
-      }, 60000); // 60 seconds
+      }, 10000); // 10 seconds
 
       setIntervalId(id);
       setIsSending(true);
     } catch (err) {
       const typedError = err as Error;
       errorLog("Error starting location updates: " + typedError.message);
+      setIsDisabled(false); // Re-enable button if starting updates fails
     }
   };
 
@@ -201,12 +206,15 @@ export default function App() {
       setIntervalId(null);
     }
     setLoading(false);
+    setIsDisabled(false); // Re-enable button when stopping
     setErrorMessage(null);
     setIsSending(false);
     setLocation(null);
   };
 
   const handleButtonPress = () => {
+    setLoading(true);
+    setIsDisabled(true); // Disable button immediately
     if (isSending) {
       stopSending();
     } else {
@@ -227,8 +235,10 @@ export default function App() {
         style={[
           styles.button,
           isSending ? styles.stopButton : styles.startButton,
+          isDisabled ? styles.disabledButton : styles.notDisabledButton,
         ]}
         onPress={handleButtonPress}
+        disabled={isDisabled}
       >
         <Text style={styles.buttonText}>
           {isSending ? "Stop Sending Geolocation" : "Start Sending Geolocation"}
@@ -286,6 +296,12 @@ const styles = StyleSheet.create({
   },
   stopButton: {
     backgroundColor: "red",
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  notDisabledButton: {
+    opacity: 1,
   },
   buttonText: {
     color: "#fff",

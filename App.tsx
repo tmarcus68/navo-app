@@ -167,6 +167,7 @@ export default function App() {
       }
 
       // Start background location tracking
+      console.log("Starting background location updates...");
       await startBackgroundUpdate();
 
       // Fetch and send the current location immediately in the foreground
@@ -224,9 +225,15 @@ export default function App() {
   };
 
   const stopSending = async () => {
+    console.log("Stopping background location updates...");
     await stopBackgroundUpdate();
     setIsSending(false);
     setLocation(null);
+
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
   };
 
   const handleButtonPress = () => {
@@ -322,8 +329,10 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: 20,
+    alignItems: "center",
   },
   errorText: {
     color: "red",
+    fontSize: 16,
   },
 });

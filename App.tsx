@@ -44,7 +44,6 @@ export default function App() {
 
     loadApiUrl();
 
-    // Cleanup interval on unmount
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
@@ -81,7 +80,6 @@ export default function App() {
       });
 
       if (!response.ok) {
-        // Attempt to parse response body for error details
         const errorResponse = await response.json();
         throw new Error(
           `Error ${response.status}: ${
@@ -119,16 +117,11 @@ export default function App() {
     }
   };
 
-  const requestForegroundPermission = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    return status === "granted";
-  };
-
-  const requestBackgroundPermission = async () => {
-    if (Platform.OS === "android") {
-      const { status } = await Location.requestBackgroundPermissionsAsync();
+  const requestPermission = async (type: "foreground" | "background") => {
+    if (type === "foreground") {
+      const { status } = await Location.requestForegroundPermissionsAsync();
       return status === "granted";
-    } else if (Platform.OS === "ios") {
+    } else if (Platform.OS === "android" || Platform.OS === "ios") {
       const { status } = await Location.requestBackgroundPermissionsAsync();
       return status === "granted";
     }
@@ -138,26 +131,28 @@ export default function App() {
   const startSending = async () => {
     if (!apiUrl) {
       Alert.alert("Error", "API URL is not set");
-      setIsDisabled(false); // Re-enable button if URL is not set
+      setIsDisabled(false);
       return;
     }
 
     try {
-      const hasForegroundPermission = await requestForegroundPermission();
+      const hasForegroundPermission = await requestPermission("foreground");
       if (!hasForegroundPermission) {
         Alert.alert(
-          "Permission to access location was denied. Please enable location permissions in your device settings."
+          "Permission Denied",
+          "Please enable location permissions in your device settings."
         );
-        setIsDisabled(false); // Re-enable button if permission is denied
+        setIsDisabled(false);
         return;
       }
 
-      const hasBackgroundPermission = await requestBackgroundPermission();
+      const hasBackgroundPermission = await requestPermission("background");
       if (!hasBackgroundPermission) {
         Alert.alert(
-          "Background location permission is required for full functionality. Please enable it in your device settings."
+          "Background Permission Required",
+          "Please enable background location permissions in your device settings."
         );
-        setIsDisabled(false); // Re-enable button if background permission is denied
+        setIsDisabled(false);
         return;
       }
 
@@ -172,7 +167,7 @@ export default function App() {
       } catch (err) {
         const typedError = err as Error;
         errorLog("Error fetching initial location: " + typedError.message);
-        setIsDisabled(false); // Re-enable button if initial location fetch fails
+        setIsDisabled(false);
         return;
       }
 
@@ -203,7 +198,7 @@ export default function App() {
     } catch (err) {
       const typedError = err as Error;
       errorLog("Error starting location updates: " + typedError.message);
-      setIsDisabled(false); // Re-enable button if starting updates fails
+      setIsDisabled(false);
     }
   };
 
@@ -213,7 +208,7 @@ export default function App() {
       setIntervalId(null);
     }
     setLoading(false);
-    setIsDisabled(false); // Re-enable button when stopping
+    setIsDisabled(false);
     setErrorMessage(null);
     setLocation(null);
     setIsSending(false);
@@ -221,7 +216,7 @@ export default function App() {
 
   const handleButtonPress = () => {
     setLoading(true);
-    setIsDisabled(true); // Disable button immediately
+    setIsDisabled(true);
     if (isSending) {
       stopSending();
     } else {
@@ -242,7 +237,7 @@ export default function App() {
         style={[
           styles.button,
           isSending ? styles.stopButton : styles.startButton,
-          isDisabled ? styles.disabledButton : styles.notDisabledButton,
+          isDisabled && styles.disabledButton,
         ]}
         onPress={handleButtonPress}
         disabled={isDisabled}
@@ -307,9 +302,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
-  notDisabledButton: {
-    opacity: 1,
-  },
   buttonText: {
     color: "#fff",
     fontSize: 16,
@@ -322,8 +314,14 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: 20,
+    padding: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "red",
+    backgroundColor: "#fdd",
   },
   errorText: {
     color: "red",
+    textAlign: "center",
   },
 });
